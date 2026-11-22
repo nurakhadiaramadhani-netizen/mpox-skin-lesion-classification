@@ -26,6 +26,9 @@ from config import CONFIGS, YOLO_CONFIGS
 
 METRICS = ["accuracy", "precision", "recall", "f1", "roc_auc"]
 
+# Ukuran gambar YOLO harus sama dengan saat training (yolo.py memakai imgsz=224)
+YOLO_IMG_SIZE = 224
+
 
 def plot_confusion_matrix(cf_matrix, classes, title, path):
     row_sum = np.sum(cf_matrix, axis=1)[:, None]
@@ -136,11 +139,14 @@ def predict_cnn_fold(model_name, fold, split, device, root):
     img_size = cfg["img_size"]
     batch_size = cfg["batch_size"]
 
-    ckpt_path = (
-        os.path.join("Checkpoints", "best_model.pth")
-        if model_name == "model1"
-        else os.path.join("Checkpoints", "best_model2.pth")
-    )
+    # Checkpoint per fold, sama dengan nama yang disimpan train.py
+    ckpt_path = os.path.join("Checkpoints", f"best_{model_name}_fold{fold}.pth")
+    if not os.path.exists(ckpt_path):
+        raise FileNotFoundError(
+            f"Checkpoint tidak ditemukan: {ckpt_path}. "
+            f"Jalankan: python train.py --model {model_name} --folds {fold}"
+        )
+    print(f"[{model_name}] Fold {fold} memakai checkpoint: {ckpt_path}")
 
     dataset = getImageLabel(fold=fold, split=split, img_size=img_size, root=root)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
@@ -225,9 +231,10 @@ def predict_yolo_fold(fold, split, device, root):
     from ultralytics import YOLO
 
     yolo_cfg = next(iter(YOLO_CONFIGS.values()), {})
-    img_size = yolo_cfg.get("img_size", 640)
+    img_size = YOLO_IMG_SIZE
     batch_size = yolo_cfg.get("batch_size", 16)
     weights_path = _find_yolo_weights(fold)
+    print(f"[yolo] Fold {fold} memakai bobot: {weights_path}")
 
     dataset = getImageLabel(fold=fold, split=split, img_size=img_size, root=root)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
@@ -316,4 +323,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
